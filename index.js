@@ -14,47 +14,57 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// 🧱 Middleware
-app.use(helmet());
+// ✅ CORS Configuration (Support multiple origins)
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://edutrack-frontend-26aa-qlhls8tyt-ammar12mustufa-1887s-projects.vercel.app',
+];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS: ' + origin));
+    }
+  },
   credentials: true,
 }));
+
+// 🧱 Middleware
+app.use(helmet());
 app.use(express.json());
 app.use(morgan('dev'));
 
 // 🔀 Routes
 const authRoutes = require('./routes/auth.routes')(supabase);
 const apiRoutes = require('./routes/api.routes')(supabase);
-const roleRoutes = require('./routes/roles.routes')(supabase); // ✅ Add this line
+const roleRoutes = require('./routes/roles.routes')(supabase);
 const sessionRoutes = require('./routes/usersessions.routes')(supabase);
 const invoiceRoutes = require('./routes/invoice.routes')(supabase);
-// ✅ ADD this line for User Management
 const userRoutes = require('./routes/users.routes')(supabase);
 const formationRoutes = require('./routes/formations.routes')(supabase);
-
 const studentsRouter = require('./routes/studentsRouter')(supabase);
-app.use('/api/v1/students', studentsRouter);
 
+// 🧩 Register Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', apiRoutes);
-app.use('/api/v1/roles', roleRoutes); // ✅ Register the new route
+app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/session', sessionRoutes);
 app.use('/api/v1', invoiceRoutes);
-app.use('/api/v1', formationRoutes);
-
-// ✅ ADD this line to register user routes
+app.use('/api/v1/formations', formationRoutes);
 app.use('/api/v1', userRoutes);
+app.use('/api/v1/students', studentsRouter);
 
 // ✅ Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
-// 🧯 Error Handling
+// 🧯 Global Error Handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
+  console.error('Global Error:', err.message);
+  res.status(500).json({ error: 'Something broke!', details: err.message });
 });
 
 // 🚀 Start Server
