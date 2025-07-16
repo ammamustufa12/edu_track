@@ -14,50 +14,44 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// ✅ CORS Configuration (Support multiple origins)
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://edutrack-frontend-26aa-qlhls8tyt-ammar12mustufa-1887s-projects.vercel.app',
-];
-
-app.use(cors());
-
 // 🧱 Middleware
 app.use(helmet());
+app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
 // 🔀 Routes
 const authRoutes = require('./routes/auth.routes')(supabase);
 const apiRoutes = require('./routes/api.routes')(supabase);
-const roleRoutes = require('./routes/roles.routes')(supabase);
+const roleRoutes = require('./routes/roles.routes')(supabase); // ✅ Add this line
 const sessionRoutes = require('./routes/usersessions.routes')(supabase);
 const invoiceRoutes = require('./routes/invoice.routes')(supabase);
+// ✅ ADD this line for User Management
 const userRoutes = require('./routes/users.routes')(supabase);
 const formationRoutes = require('./routes/formations.routes')(supabase);
-const studentsRouter = require('./routes/studentsRouter')(supabase);
 
-// 🧩 Register Routes
+const studentsRouter = require('./routes/studentsRouter')(supabase);
+app.use('/api/v1/students', studentsRouter);
+
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', apiRoutes);
-app.use('/api/v1/roles', roleRoutes);
+app.use('/api/v1/roles', roleRoutes); // ✅ Register the new route
 app.use('/api/v1/session', sessionRoutes);
 app.use('/api/v1', invoiceRoutes);
 app.use('/api/v1/formations', formationRoutes);
 
 // ✅ ADD this line to register user routes
 app.use('/api/v1', userRoutes);
-app.use('/api/v1/students', studentsRouter);
 
 // ✅ Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
-// 🧯 Global Error Handler
+// 🧯 Error Handling
 app.use((err, req, res, next) => {
-  console.error('Global Error:', err.message);
-  res.status(500).json({ error: 'Something broke!', details: err.message });
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
 // 🚀 Start Server
