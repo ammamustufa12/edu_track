@@ -21,13 +21,7 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS: ' + origin));
-    }
-  },
+  origin: process.env.CORS_ORIGIN || 'https://edutrack-frontend-26aa-qlhls8tyt-ammar12mustufa-1887s-projects.vercel.app',
   credentials: true,
 }));
 
@@ -53,6 +47,8 @@ app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/session', sessionRoutes);
 app.use('/api/v1', invoiceRoutes);
 app.use('/api/v1/formations', formationRoutes);
+
+// ✅ ADD this line to register user routes
 app.use('/api/v1', userRoutes);
 app.use('/api/v1/students', studentsRouter);
 
