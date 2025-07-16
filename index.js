@@ -20,10 +20,7 @@ const allowedOrigins = [
   'https://edutrack-frontend-26aa-qlhls8tyt-ammar12mustufa-1887s-projects.vercel.app',
 ];
 
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'https://edutrack-frontend-26aa-qlhls8tyt-ammar12mustufa-1887s-projects.vercel.app',
-  credentials: true,
-}));
+app.use(cors());
 
 // 🧱 Middleware
 app.use(helmet());
