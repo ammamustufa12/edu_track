@@ -23,25 +23,28 @@ app.use(morgan('dev'));
 // 🔀 Routes
 const authRoutes = require('./routes/auth.routes')(supabase);
 const apiRoutes = require('./routes/api.routes')(supabase);
-const roleRoutes = require('./routes/roles.routes')(supabase); // ✅ Add this line
+const roleRoutes = require('./routes/roles.routes')(supabase);
 const sessionRoutes = require('./routes/usersessions.routes')(supabase);
 const invoiceRoutes = require('./routes/invoice.routes')(supabase);
-// ✅ ADD this line for User Management
 const userRoutes = require('./routes/users.routes')(supabase);
 const formationRoutes = require('./routes/formations.routes')(supabase);
-
 const studentsRouter = require('./routes/studentsRouter')(supabase);
-app.use('/api/v1/students', studentsRouter);
 
+// Import forgot-password route
+const forgotPasswordRoute = require('./routes/forgot-password-route')(supabase);
+
+// Mount routers
+app.use('/api/v1/students', studentsRouter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', apiRoutes);
-app.use('/api/v1/roles', roleRoutes); // ✅ Register the new route
+app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/session', sessionRoutes);
 app.use('/api/v1', invoiceRoutes);
 app.use('/api/v1/formations', formationRoutes);
-
-// ✅ ADD this line to register user routes
 app.use('/api/v1', userRoutes);
+
+// Mount forgot-password route under /api/v1/auth
+app.use('/api/v1/auth', forgotPasswordRoute);
 
 // ✅ Health Check
 app.get('/health', (req, res) => {
