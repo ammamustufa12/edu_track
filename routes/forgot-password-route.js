@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require("uuid");
 module.exports = (supabase) => {
   const router = express.Router();
 
-  // Setup Nodemailer transporter using env variables
+  // Setup Nodemailer transporter
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
@@ -39,26 +39,38 @@ module.exports = (supabase) => {
       // Generate unique reset token
       const resetToken = uuidv4();
 
-      // Save token and expiry in password_resets table
-      const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+      // Save token and expiry in DB
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
 
-      await supabase
+      const { error: insertError } = await supabase
         .from("password_resets")
-        .insert([{ email, token: resetToken, expires_at: expiry.toISOString() }]);
+        .insert([
+          {
+            email,
+            token: resetToken,
+            expires_at: expiresAt.toISOString(),
+          },
+        ]);
 
-      // Create reset link
-      const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+      if (insertError) {
+        console.error("Token insert error:", insertError);
+        return res.status(500).json({ success: false, error: "Failed to store reset token" });
+      }
 
-      // Send email to user
+      // ✅ Create secure reset link using env
+      const baseUrl = process.env.CLIENT_BASE_URL || "http://localhost:3000";
+      const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+      // Send the email
       await transporter.sendMail({
         from: `"Your App Support" <${process.env.SMTP_USER}>`,
         to: email,
         subject: "Password Reset Request",
         html: `
-          <p>Hello ${user.name || ""},</p>
+          <p>Hello ${user.name || "user"},</p>
           <p>You requested to reset your password.</p>
           <p>Click the link below to reset it:</p>
-          <a href="${resetLink}">${resetLink}</a>
+          <p><a href="${resetLink}">${resetLink}</a></p>
           <p>This link expires in 15 minutes.</p>
           <p>If you did not request this, please ignore this email.</p>
         `,
