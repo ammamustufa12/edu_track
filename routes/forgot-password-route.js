@@ -17,17 +17,20 @@ module.exports = (supabase) => {
     },
   });
 
-  // POST /api/v1/auth/forgot-password
+  /** ------------------------
+   * FORGOT PASSWORD
+   * POST /api/v1/auth/forgot-password
+   * ------------------------ */
   router.post("/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
-      console.log("Forgot Password Request:", email);
+      console.log("📩 Forgot Password Request:", email);
 
       if (!email) {
         return res.status(400).json({ success: false, error: "Email is required" });
       }
 
-      // Find user by email
+      // Find user
       const { data: user, error } = await supabase
         .from("users")
         .select("*")
@@ -35,30 +38,31 @@ module.exports = (supabase) => {
         .single();
 
       if (error || !user) {
+        console.warn("❌ User not found:", email);
         return res.status(404).json({ success: false, error: "User not found" });
       }
 
-      // Generate unique reset token
+      // Generate reset token
       const resetToken = uuidv4();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
-      // Save token
+      // Insert reset token
       const { error: insertError } = await supabase
         .from("password_resets")
         .insert([{ email, token: resetToken, expires_at: expiresAt.toISOString() }]);
 
       if (insertError) {
-        console.error("Token insert error:", insertError);
+        console.error("❌ Token insert error:", insertError);
         return res.status(500).json({ success: false, error: "Failed to store reset token" });
       }
 
-      // Reset link
       const baseUrl = process.env.CLIENT_BASE_URL || "http://localhost:3000";
       const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+      console.log("🔗 Reset link:", resetLink);
 
-      // Send the email
+      // Send email
       await transporter.sendMail({
-        from: `"Your App Support" <${process.env.SMTP_USER}>`,
+        from: `"Support" <${process.env.SMTP_USER}>`,
         to: email,
         subject: "Password Reset Request",
         html: `
@@ -78,11 +82,14 @@ module.exports = (supabase) => {
     }
   });
 
-  // POST /api/v1/auth/reset-password
+  /** ------------------------
+   * RESET PASSWORD
+   * POST /api/v1/auth/reset-password
+   * ------------------------ */
   router.post("/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
-      console.log("Reset Password Request:", { token, password });
+      console.log("🔑 Reset Password Request:", { token, password });
 
       if (!token || !password) {
         return res.status(400).json({ success: false, error: "Token and password are required" });
@@ -96,30 +103,33 @@ module.exports = (supabase) => {
         .single();
 
       if (tokenError || !resetRecord) {
+        console.warn("❌ Invalid or expired token");
         return res.status(400).json({ success: false, error: "Invalid or expired token" });
       }
 
       if (new Date(resetRecord.expires_at) < new Date()) {
+        console.warn("❌ Token expired:", token);
         return res.status(400).json({ success: false, error: "Token has expired" });
       }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Update user password (use password_hash column)
+      // Update password using password_hash column
       const { error: updateError } = await supabase
         .from("users")
         .update({ password_hash: hashedPassword })
         .eq("email", resetRecord.email);
 
       if (updateError) {
-        console.error("Password update error:", updateError);
+        console.error("❌ Password update error:", updateError);
         return res.status(500).json({ success: false, error: "Failed to update password" });
       }
 
       // Delete token
       await supabase.from("password_resets").delete().eq("token", token);
 
+      console.log("✅ Password reset successful for:", resetRecord.email);
       res.json({ success: true, message: "Password has been reset successfully." });
     } catch (err) {
       console.error("Reset password error:", err);
