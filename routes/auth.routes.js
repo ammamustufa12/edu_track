@@ -7,97 +7,38 @@ module.exports = (supabase) => {
   const router = express.Router();
 
   // POST /api/v1/auth/register
-  // router.post('/register', async (req, res) => {
-  //   try {
-  //     let { name, email, password, role } = req.body;
-
-  //     email = String(email).trim().replace(/^"|"$/g, '');
-  //     role = role || 'user';
-
-  //     if (!name || !email || !password) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         error: 'All fields are required',
-  //       });
-  //     }
-
-  //     const salt = await bcrypt.genSalt(10);
-  //     const hashedPassword = await bcrypt.hash(password, salt);
-
-  //     const { data, error } = await supabase
-  //       .from('users')
-  //       .insert({
-  //         name,
-  //         email,
-  //         password_hash: hashedPassword,
-  //         role,
-  //         is_active: true,
-  //       })
-  //       .select('id, name, email, role, is_active');
-
-  //     if (error) throw error;
-
-  //     res.status(201).json({
-  //       success: true,
-  //       user: data[0],
-  //     });
-  //   } catch (error) {
-  //     console.error('Registration error:', error);
-  //     res.status(500).json({
-  //       success: false,
-  //       error: 'Registration failed',
-  //       message: error.message,
-  //       details: error,
-  //     });
-  //   }
-  // });
-
-  // POST /api/v1/auth/register
   router.post('/register', async (req, res) => {
     try {
-      let { name, email, phone, role } = req.body;
-
-      console.log("Incoming Register Request:", req.body);
+      let { name, email, password, role } = req.body;
 
       email = String(email).trim().replace(/^"|"$/g, '');
       role = role || 'user';
 
-      if (!name || !email || !phone) {
+      if (!name || !email || !password) {
         return res.status(400).json({
           success: false,
-          error: 'Name, Email, and Phone are required',
+          error: 'All fields are required',
         });
       }
 
-      // 1. Auto-generate password
-      const autoPassword = crypto.randomBytes(4).toString('hex'); // Example: 8-char random password
-      console.log("Generated Password:", autoPassword);
-
-      // 2. Hash password
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(autoPassword, salt);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-      // 3. Save user in Supabase
       const { data, error } = await supabase
         .from('users')
         .insert({
           name,
           email,
-          phone,
           password_hash: hashedPassword,
           role,
           is_active: true,
         })
-        .select('id, name, email, phone, role, is_active');
+        .select('id, name, email, role, is_active');
 
       if (error) throw error;
 
-      // 4. Send email with details
-      await sendRegistrationEmail({ name, email, phone, role, password: autoPassword });
-
       res.status(201).json({
         success: true,
-        message: 'User registered successfully, email sent!',
         user: data[0],
       });
     } catch (error) {
@@ -110,37 +51,6 @@ module.exports = (supabase) => {
       });
     }
   });
-
-  // Email function
-  async function sendRegistrationEmail({ name, email, phone, role, password }) {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.SMTP_EMAIL,  // Your email
-        pass: process.env.SMTP_PASS,   // Your email password or app password
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.SMTP_EMAIL,
-      to: email,
-      subject: 'Welcome! Your Account Details',
-      html: `
-        <h3>Hello ${name},</h3>
-        <p>Your account has been created successfully.</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone}</p>
-        <p><strong>Role:</strong> ${role}</p>
-        <p><strong>Password:</strong> ${password}</p>
-        <br/>
-        <p>Please login and change your password.</p>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${email}`);
-  }
-
 
   // POST /api/v1/auth/login
   router.post('/login', async (req, res) => {
