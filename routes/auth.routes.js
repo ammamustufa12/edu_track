@@ -1,42 +1,81 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 module.exports = (supabase) => {
   const router = express.Router();
 
+  // Setup Nodemailer Transport
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER, // Your Gmail
+      pass: process.env.EMAIL_PASS, // App password or Gmail password
+    },
+  });
+
   // POST /api/v1/auth/register
   router.post('/register', async (req, res) => {
     try {
-      let { name, email, password, role } = req.body;
+      let { name, email, phone, role } = req.body;
 
       email = String(email).trim().replace(/^"|"$/g, '');
       role = role || 'user';
 
-      if (!name || !email || !password) {
+      if (!name || !email || !phone) {
         return res.status(400).json({
           success: false,
-          error: 'All fields are required',
+          error: 'Name, Email, and Phone are required',
         });
       }
 
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+      // Generate a random password (12 characters)
+      const generatedPassword = crypto.randomBytes(6).toString('hex');
 
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(generatedPassword, salt);
+
+      // Insert user in DB
       const { data, error } = await supabase
         .from('users')
         .insert({
           name,
           email,
+          phone,
           password_hash: hashedPassword,
           role,
           is_active: true,
         })
-        .select('id, name, email, role, is_active');
+        .select('id, name, email, phone, role, is_active');
 
       if (error) throw error;
 
+      // Send email with account details
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Your Account Details',
+        html: `
+          <h3>Hello ${name},</h3>
+          <p>Your account has been successfully created. Here are your details:</p>
+          <ul>
+            <li><strong>Name:</strong> ${name}</li>
+            <li><strong>Email:</strong> ${email}</li>
+            <li><strong>Phone:</strong> ${phone}</li>
+            <li><strong>Role:</strong> ${role}</li>
+            <li><strong>Password:</strong> ${generatedPassword}</li>
+          </ul>
+          <p>Please login and change your password as soon as possible.</p>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+
       res.status(201).json({
         success: true,
+        message: 'User registered successfully. Email sent!',
         user: data[0],
       });
     } catch (error) {
@@ -113,7 +152,7 @@ module.exports = (supabase) => {
 
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, role, is_active')
+        .select('id, name, email, phone, role, is_active')
         .eq('id', id)
         .single();
 
@@ -129,13 +168,13 @@ module.exports = (supabase) => {
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, email, role, is_active } = req.body;
+      const { name, email, phone, role, is_active } = req.body;
 
       const { data, error } = await supabase
         .from('users')
-        .update({ name, email, role, is_active })
+        .update({ name, email, phone, role, is_active })
         .eq('id', id)
-        .select('id, name, email, role, is_active');
+        .select('id, name, email, phone, role, is_active');
 
       if (error) throw error;
 
@@ -183,7 +222,7 @@ module.exports = (supabase) => {
         .from('users')
         .update({ password_hash: hashedPassword })
         .eq('id', id)
-        .select('id, name, email, role, is_active');
+        .select('id, name, email, phone, role, is_active');
 
       if (error) throw error;
 
@@ -207,7 +246,6 @@ module.exports = (supabase) => {
     try {
       const { id } = req.params;
 
-      // Get current is_active status
       const { data: user, error: fetchError } = await supabase
         .from('users')
         .select('is_active')
@@ -219,12 +257,11 @@ module.exports = (supabase) => {
 
       const newStatus = !user.is_active;
 
-      // Update the status
       const { data, error: updateError } = await supabase
         .from('users')
         .update({ is_active: newStatus })
         .eq('id', id)
-        .select('id, name, email, role, is_active');
+        .select('id, name, email, phone, role, is_active');
 
       if (updateError) throw updateError;
 
@@ -248,7 +285,7 @@ module.exports = (supabase) => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, role, is_active');
+        .select('id, name, email, phone, role, is_active');
 
       if (error) throw error;
 
