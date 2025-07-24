@@ -21,6 +21,7 @@ module.exports = (supabase) => {
   router.post("/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
+      console.log("Forgot Password Request:", email);
 
       if (!email) {
         return res.status(400).json({ success: false, error: "Email is required" });
@@ -39,26 +40,19 @@ module.exports = (supabase) => {
 
       // Generate unique reset token
       const resetToken = uuidv4();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
-      // Save token and expiry in DB
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes from now
-
+      // Save token
       const { error: insertError } = await supabase
         .from("password_resets")
-        .insert([
-          {
-            email,
-            token: resetToken,
-            expires_at: expiresAt.toISOString(),
-          },
-        ]);
+        .insert([{ email, token: resetToken, expires_at: expiresAt.toISOString() }]);
 
       if (insertError) {
         console.error("Token insert error:", insertError);
         return res.status(500).json({ success: false, error: "Failed to store reset token" });
       }
 
-      // Create secure reset link using env
+      // Reset link
       const baseUrl = process.env.CLIENT_BASE_URL || "http://localhost:3000";
       const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
 
@@ -68,7 +62,7 @@ module.exports = (supabase) => {
         to: email,
         subject: "Password Reset Request",
         html: `
-          <p>Hello ${user.name || "user"},</p>
+          <p>Hello ${user.name || "User"},</p>
           <p>You requested to reset your password.</p>
           <p>Click the link below to reset it:</p>
           <p><a href="${resetLink}">${resetLink}</a></p>
@@ -88,12 +82,13 @@ module.exports = (supabase) => {
   router.post("/reset-password", async (req, res) => {
     try {
       const { token, password } = req.body;
+      console.log("Reset Password Request:", { token, password });
 
       if (!token || !password) {
         return res.status(400).json({ success: false, error: "Token and password are required" });
       }
 
-      // Find the token record and check expiry
+      // Find token
       const { data: resetRecord, error: tokenError } = await supabase
         .from("password_resets")
         .select("*")
@@ -104,18 +99,17 @@ module.exports = (supabase) => {
         return res.status(400).json({ success: false, error: "Invalid or expired token" });
       }
 
-      const now = new Date();
-      if (new Date(resetRecord.expires_at) < now) {
+      if (new Date(resetRecord.expires_at) < new Date()) {
         return res.status(400).json({ success: false, error: "Token has expired" });
       }
 
-      // Hash the new password
+      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Update user's password in users table
+      // Update user password (use password_hash column)
       const { error: updateError } = await supabase
         .from("users")
-        .update({ password: hashedPassword })
+        .update({ password_hash: hashedPassword })
         .eq("email", resetRecord.email);
 
       if (updateError) {
@@ -123,16 +117,8 @@ module.exports = (supabase) => {
         return res.status(500).json({ success: false, error: "Failed to update password" });
       }
 
-      // Delete the reset token so it can't be reused
-      const { error: deleteError } = await supabase
-        .from("password_resets")
-        .delete()
-        .eq("token", token);
-
-      if (deleteError) {
-        console.error("Token delete error:", deleteError);
-        // Not critical, continue anyway
-      }
+      // Delete token
+      await supabase.from("password_resets").delete().eq("token", token);
 
       res.json({ success: true, message: "Password has been reset successfully." });
     } catch (err) {
