@@ -7,50 +7,134 @@ module.exports = (supabase) => {
   const router = express.Router();
 
   // POST /api/v1/auth/register
-  router.post('/register', async (req, res) => {
-    try {
-      let { name, email, password, role } = req.body;
+  // router.post('/register', async (req, res) => {
+  //   try {
+  //     let { name, email, password, role } = req.body;
 
-      email = String(email).trim().replace(/^"|"$/g, '');
-      role = role || 'user';
+  //     email = String(email).trim().replace(/^"|"$/g, '');
+  //     role = role || 'user';
 
-      if (!name || !email || !password) {
-        return res.status(400).json({
-          success: false,
-          error: 'All fields are required',
-        });
-      }
+  //     if (!name || !email || !password) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         error: 'All fields are required',
+  //       });
+  //     }
 
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+  //     const salt = await bcrypt.genSalt(10);
+  //     const hashedPassword = await bcrypt.hash(password, salt);
 
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          name,
-          email,
-          password_hash: hashedPassword,
-          role,
-          is_active: true,
-        })
-        .select('id, name, email, role, is_active');
+  //     const { data, error } = await supabase
+  //       .from('users')
+  //       .insert({
+  //         name,
+  //         email,
+  //         password_hash: hashedPassword,
+  //         role,
+  //         is_active: true,
+  //       })
+  //       .select('id, name, email, role, is_active');
 
-      if (error) throw error;
+  //     if (error) throw error;
 
-      res.status(201).json({
-        success: true,
-        user: data[0],
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({
+  //     res.status(201).json({
+  //       success: true,
+  //       user: data[0],
+  //     });
+  //   } catch (error) {
+  //     console.error('Registration error:', error);
+  //     res.status(500).json({
+  //       success: false,
+  //       error: 'Registration failed',
+  //       message: error.message,
+  //       details: error,
+  //     });
+  //   }
+  // });
+// POST /api/v1/auth/register
+router.post('/register', async (req, res) => {
+  try {
+    let { name, email, phone, role } = req.body;
+
+    email = String(email).trim().replace(/^"|"$/g, '');
+    role = role || 'user';
+
+    if (!name || !email || !phone) {
+      return res.status(400).json({
         success: false,
-        error: 'Registration failed',
-        message: error.message,
-        details: error,
+        error: 'Name, email, and phone are required',
       });
     }
-  });
+
+    // Generate random password (8 characters)
+    const password = crypto.randomBytes(4).toString('hex'); // e.g., "a3f9b2cd"
+
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Insert user into Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        name,
+        email,
+        phone,
+        password_hash: hashedPassword,
+        role,
+        is_active: true,
+      })
+      .select('id, name, email, phone, role, is_active');
+
+    if (error) throw error;
+
+    // Send email with login details
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Support Team" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: 'Welcome to Our Platform - Your Account Details',
+      html: `
+        <h3>Hello ${name},</h3>
+        <p>Your account has been created successfully. Below are your login details:</p>
+        <ul>
+          <li><strong>Email:</strong> ${email}</li>
+          <li><strong>Phone:</strong> ${phone}</li>
+          <li><strong>Role:</strong> ${role}</li>
+          <li><strong>Password:</strong> ${password}</li>
+        </ul>
+        <p>You can login and change your password anytime.</p>
+        <p>Thank you!</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(201).json({
+      success: true,
+      user: data[0],
+      message: 'User registered and email sent successfully',
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Registration failed',
+      message: error.message,
+      details: error,
+    });
+  }
+});
+
 
   // POST /api/v1/auth/login
   router.post('/login', async (req, res) => {
