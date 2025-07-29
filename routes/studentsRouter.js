@@ -19,7 +19,7 @@ module.exports = (supabase) => {
     }
   });
 
-  // Get student by id
+  // Get student by ID
   router.get('/:id', async (req, res) => {
     try {
       const { id } = req.params;
@@ -42,16 +42,38 @@ module.exports = (supabase) => {
   // Create new student
   router.post('/', async (req, res) => {
     try {
-      const { firstname, lastname, birthdate, level, parent1, parent2 } = req.body;
+      const {
+        emroll,
+        firstname,
+        lastname,
+        birthdate,
+        level,
+        parent1,
+        parent2,
+        email,
+        status
+      } = req.body;
 
-      // Basic validation
-      if (!firstname || !lastname || !birthdate || !level || !parent1) {
+      if (!emroll || !firstname || !lastname || !birthdate || !level || !parent1?.name || !parent1?.phone) {
         return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
       const { data, error } = await supabase
         .from('students')
-        .insert({ firstname, lastname, birthdate, level, parent1, parent2 })
+        .insert({
+          emroll,
+          firstname,
+          lastname,
+          birthdate,
+          level,
+          parent1_name: parent1.name,
+          parent1_phone: parent1.phone,
+          parent2_name: parent2?.name || null,
+          parent2_phone: parent2?.phone || null,
+          email,
+          status,
+          created_at: new Date()
+        })
         .select()
         .single();
 
@@ -68,11 +90,34 @@ module.exports = (supabase) => {
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { firstname, lastname, birthdate, level, parent1, parent2 } = req.body;
+      const {
+        emroll,
+        firstname,
+        lastname,
+        birthdate,
+        level,
+        parent1,
+        parent2,
+        email,
+        status
+      } = req.body;
 
       const { data, error } = await supabase
         .from('students')
-        .update({ firstname, lastname, birthdate, level, parent1, parent2, updated_at: new Date() })
+        .update({
+          emroll,
+          firstname,
+          lastname,
+          birthdate,
+          level,
+          parent1_name: parent1?.name,
+          parent1_phone: parent1?.phone,
+          parent2_name: parent2?.name,
+          parent2_phone: parent2?.phone,
+          email,
+          status,
+          updated_at: new Date()
+        })
         .eq('id', id)
         .select()
         .single();
