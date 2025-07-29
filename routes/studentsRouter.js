@@ -40,10 +40,11 @@ module.exports = (supabase) => {
   });
 
   // Create new student
+// POST /api/v1/students
 router.post('/', async (req, res) => {
   try {
     const {
-      emroll,
+      
       firstname,
       lastname,
       birthdate,
@@ -55,9 +56,9 @@ router.post('/', async (req, res) => {
       status
     } = req.body;
 
-    // Validate required fields
+    // Required fields validation
     if (
-      !emroll ||
+    
       !firstname ||
       !lastname ||
       !birthdate ||
@@ -68,10 +69,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
+    // Insert student data into Supabase
     const { data, error } = await supabase
       .from('students')
       .insert({
-        emroll,
+      
         firstname,
         lastname,
         birthdate,
@@ -96,12 +98,13 @@ router.post('/', async (req, res) => {
 });
 
 
+
   // Update student
   router.put('/:id', async (req, res) => {
     try {
       const { id } = req.params;
       const {
-        emroll,
+        
         firstname,
         lastname,
         birthdate,
