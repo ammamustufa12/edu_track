@@ -99,69 +99,86 @@ router.post('/', async (req, res) => {
 
 
 
-  // Update student
-  router.put('/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
-      const {
-        
+ // Update student
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      firstname,
+      lastname,
+      birthdate,
+      level,
+      parent1_name,
+      parent1_phone,
+      parent2_name,
+      parent2_phone,
+      status
+    } = req.body;
+
+    // Validation (optional)
+    if (!firstname || !lastname || !birthdate || !level || !parent1_name || !parent1_phone) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const { data, error } = await supabase
+      .from('students')
+      .update({
         firstname,
         lastname,
         birthdate,
         level,
-        parent1,
-        parent2,
-      
-        status
-      } = req.body;
+        parent1_name,
+        parent1_phone,
+        parent2_name: parent2_name || null,
+        parent2_phone: parent2_phone || null,
+        status,
+        updated_at: new Date()
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-      const { data, error } = await supabase
-        .from('students')
-        .update({
-          
-          firstname,
-          lastname,
-          birthdate,
-          level,
-          parent1_name: parent1?.name,
-          parent1_phone: parent1?.phone,
-          parent2_name: parent2?.name,
-          parent2_phone: parent2?.phone,
-          
-          status,
-          updated_at: new Date()
-        })
-        .eq('id', id)
-        .select()
-        .single();
+    if (error) throw error;
 
-      if (error) throw error;
+    res.json({ success: true, student: data });
+  } catch (error) {
+    console.error('Update student error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update student' });
+  }
+});
 
-      res.json({ success: true, student: data });
-    } catch (error) {
-      console.error('Update student error:', error);
-      res.status(500).json({ success: false, error: 'Failed to update student' });
+
+// Delete student
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Optional: Fetch student before deletion (for confirmation or logging)
+    const { data: studentToDelete, error: fetchError } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!studentToDelete) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
     }
-  });
 
-  // Delete student
-  router.delete('/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
+    // Delete student
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', id);
 
-      const { error } = await supabase
-        .from('students')
-        .delete()
-        .eq('id', id);
+    if (error) throw error;
 
-      if (error) throw error;
-
-      res.json({ success: true, message: 'Student deleted successfully' });
-    } catch (error) {
-      console.error('Delete student error:', error);
-      res.status(500).json({ success: false, error: 'Failed to delete student' });
-    }
-  });
+    res.json({ success: true, message: 'Student deleted successfully', deletedStudent: studentToDelete });
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete student' });
+  }
+});
 
   return router;
 };
