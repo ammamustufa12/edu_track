@@ -118,7 +118,7 @@ router.post('/', async (req, res) => {
       const { data, error } = await supabase
         .from('students')
         .update({
-          emroll,
+          
           firstname,
           lastname,
           birthdate,
