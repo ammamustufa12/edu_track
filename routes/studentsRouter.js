@@ -99,6 +99,7 @@ router.post('/', async (req, res) => {
 
 
 
+  // Update student
  // Update student
 router.put('/:id', async (req, res) => {
   try {
@@ -115,11 +116,12 @@ router.put('/:id', async (req, res) => {
       status
     } = req.body;
 
-    // Validation (optional)
+    // Validate required fields
     if (!firstname || !lastname || !birthdate || !level || !parent1_name || !parent1_phone) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
+    // Update student
     const { data, error } = await supabase
       .from('students')
       .update({
@@ -139,6 +141,9 @@ router.put('/:id', async (req, res) => {
       .single();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
 
     res.json({ success: true, student: data });
   } catch (error) {
@@ -147,38 +152,42 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-
 // Delete student
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Optional: Fetch student before deletion (for confirmation or logging)
-    const { data: studentToDelete, error: fetchError } = await supabase
+    // Check if student exists
+    const { data: existingStudent, error: fetchError } = await supabase
       .from('students')
       .select('*')
       .eq('id', id)
       .single();
 
     if (fetchError) throw fetchError;
-    if (!studentToDelete) {
+    if (!existingStudent) {
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
     // Delete student
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from('students')
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
 
-    res.json({ success: true, message: 'Student deleted successfully', deletedStudent: studentToDelete });
+    res.json({
+      success: true,
+      message: 'Student deleted successfully',
+      deletedStudent: existingStudent
+    });
   } catch (error) {
     console.error('Delete student error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete student' });
   }
 });
+
 
   return router;
 };
