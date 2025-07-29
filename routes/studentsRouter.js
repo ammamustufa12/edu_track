@@ -40,51 +40,61 @@ module.exports = (supabase) => {
   });
 
   // Create new student
-  router.post('/', async (req, res) => {
-    try {
-      const {
+router.post('/', async (req, res) => {
+  try {
+    const {
+      emroll,
+      firstname,
+      lastname,
+      birthdate,
+      level,
+      parent1_name,
+      parent1_phone,
+      parent2_name,
+      parent2_phone,
+      status
+    } = req.body;
+
+    // Validate required fields
+    if (
+      !emroll ||
+      !firstname ||
+      !lastname ||
+      !birthdate ||
+      !level ||
+      !parent1_name ||
+      !parent1_phone
+    ) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const { data, error } = await supabase
+      .from('students')
+      .insert({
         emroll,
         firstname,
         lastname,
         birthdate,
         level,
-        parent1,
-        parent2,
-        email,
-        status
-      } = req.body;
+        parent1_name,
+        parent1_phone,
+        parent2_name: parent2_name || null,
+        parent2_phone: parent2_phone || null,
+        status,
+        created_at: new Date()
+      })
+      .select()
+      .single();
 
-      if (!emroll || !firstname || !lastname || !birthdate || !level || !parent1?.name || !parent1?.phone) {
-        return res.status(400).json({ success: false, error: 'Missing required fields' });
-      }
+    if (error) throw error;
 
-      const { data, error } = await supabase
-        .from('students')
-        .insert({
-          emroll,
-          firstname,
-          lastname,
-          birthdate,
-          level,
-          parent1_name: parent1.name,
-          parent1_phone: parent1.phone,
-          parent2_name: parent2?.name || null,
-          parent2_phone: parent2?.phone || null,
-          email,
-          status,
-          created_at: new Date()
-        })
-        .select()
-        .single();
+    res.status(201).json({ success: true, student: data });
+  } catch (error) {
+    console.error('Create student error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create student' });
+  }
+});
 
-      if (error) throw error;
-
-      res.status(201).json({ success: true, student: data });
-    } catch (error) {
-      console.error('Create student error:', error);
-      res.status(500).json({ success: false, error: 'Failed to create student' });
-    }
-  });
 
   // Update student
   router.put('/:id', async (req, res) => {
@@ -98,7 +108,7 @@ module.exports = (supabase) => {
         level,
         parent1,
         parent2,
-        email,
+      
         status
       } = req.body;
 
@@ -114,7 +124,7 @@ module.exports = (supabase) => {
           parent1_phone: parent1?.phone,
           parent2_name: parent2?.name,
           parent2_phone: parent2?.phone,
-          email,
+          
           status,
           updated_at: new Date()
         })
